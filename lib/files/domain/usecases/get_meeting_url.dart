@@ -1,0 +1,77 @@
+import 'dart:math';
+
+import 'package:dartz/dartz.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
+import 'package:tuiibookings_domain_data_firestore/files/domain/repositories/lesson_booking_repository.dart';
+import 'package:tuiicore/core/enums/enums.dart';
+import 'package:tuiicore/core/errors/failure.dart';
+import 'package:tuiicore/core/usecases/usecase.dart';
+
+class GetMeetingUrl implements UseCase<String, GetMeetingUrlParams> {
+  final LessonBookingRepository repository;
+
+  GetMeetingUrl({required this.repository});
+
+  @override
+  Future<Either<Failure, String>> call(GetMeetingUrlParams params) async {
+    try {
+      if (params.rtcProviderType == RtcProviderType.jitsi) {
+        return Right(_getJitsiMeetingRoot(params.category));
+      } else {
+        final zoomLink = await repository.getZoomMeetingUrl(
+            params.zoomServiceUrl,
+            params.category,
+            params.zoomMeetingType,
+            params.startDate,
+            60);
+
+        debugPrint('Zoom Link: $zoomLink');
+
+        return Right(zoomLink);
+      }
+    } on Failure catch (err) {
+      return Left(err);
+    }
+  }
+
+  String _getJitsiMeetingRoot(String category) {
+    final cat = category.replaceAll(' ', '');
+    return 'org.jitsi.meet://meet.jit.si/TuiiMeet$cat${_getRandomRoomName(12)}';
+  }
+
+  String _getRandomRoomName(int len) {
+    final random = Random.secure();
+    const chars =
+        'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890';
+    return String.fromCharCodes(Iterable.generate(
+        len, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+  }
+}
+
+class GetMeetingUrlParams extends Equatable {
+  final String zoomServiceUrl;
+  final ZoomMeetingType zoomMeetingType;
+  final RtcProviderType rtcProviderType;
+  final String category;
+  final DateTime startDate;
+
+  const GetMeetingUrlParams({
+    required this.zoomServiceUrl,
+    required this.zoomMeetingType,
+    required this.rtcProviderType,
+    required this.category,
+    required this.startDate,
+  });
+
+  @override
+  List<Object> get props {
+    return [
+      zoomServiceUrl,
+      zoomMeetingType,
+      rtcProviderType,
+      category,
+      startDate,
+    ];
+  }
+}
